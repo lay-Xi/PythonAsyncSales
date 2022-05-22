@@ -38,9 +38,45 @@ def display_catalogue(catalogue):
 
     print("\n------------------------------\n")
 
+async def get_order(number_of_items):
+    order = []
+    
+    print("Please enter the number of items that you would like to add to your order. Enter q to complete your order.")
+
+    item = ""
+
+    while item != "q":
+        try:
+            item = input("Enter an item number: ")
+
+            if (item == "q"):
+                break
+
+            item = int(item)
+
+            if (item < 0):
+                raise ValueError
+            elif (item > number_of_items):
+                print(f"Please enter a number below {number_of_items + 1}")
+            else:
+                order.append(item)
+        except ValueError:
+            print("Please enter a valid number.")
+    
+    print("Placing order...")
+
+    return order
 
 async def main():
-    pass
+    print("Welcome to the ProgrammingExpert Burger Bar!")
+    print("Loading catalogue...")
+
+    inventory = Inventory()
+    number_of_items = await inventory.get_number_of_items()
+
+    display_catalogue(inventory.catalogue)
+
+    order = await get_order(number_of_items)
 
 if __name__ == "__main__":
     asyncio.run(main())
