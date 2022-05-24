@@ -38,8 +38,44 @@ def display_catalogue(catalogue):
 
     print("\n------------------------------\n")
 
-async def get_order(number_of_items):
-    order = []
+async def create_stock_list(item, inventory):
+    stock_dict = {}
+
+    stock_dict[item] = stock_dict.get(item, 0) + await inventory.get_stock(item)
+
+    return stock_dict
+
+async def check_stock(order, inventory):
+    tasks = []
+
+    stock_dict = {}
+
+    for item in order.keys():
+        tasks.append(asyncio.create_task(create_stock_list(item, inventory)))
+
+    results = await asyncio.gather(*tasks)
+
+    for result in results:
+        stock_dict.update(result)
+
+    for item, amount_ordered in order.items():
+        amount_left = stock_dict[item] - amount_ordered
+        
+        if (amount_left < 0):
+            for _ in range(amount_left, 0):
+                print(f"Unfortunately item number {item} is out of stock and has been removed from your order. Sorry!")
+                order[item] -= 1
+            
+            stock_dict[item] = 0
+        else:
+            stock_dict[item] = amount_left
+
+    print()
+
+    return (order, stock_dict)
+
+def get_order(number_of_items):
+    order = {}
     
     print("Please enter the number of items that you would like to add to your order. Enter q to complete your order.")
 
@@ -59,13 +95,47 @@ async def get_order(number_of_items):
             elif (item > number_of_items):
                 print(f"Please enter a number below {number_of_items + 1}")
             else:
-                order.append(item)
+                order[item] = order.get(item, 0) + 1
         except ValueError:
             print("Please enter a valid number.")
     
     print("Placing order...")
 
     return order
+
+async def create_combo(order, inventory):
+    combo_burger = {}
+    combo_side = {}
+    combo_drink = {}
+
+    # convert order to list of inventory item
+    # see if burger, side, drink exists in list
+    # create combo price
+    # return rest of price
+    # return subtotal
+    
+    return 0
+
+def calculate_tax(order):
+    # get sub total 
+    # calculate tax
+    # return total
+    pass
+
+def update_stock(new_stock_amount):
+    # decrement stock until equal to stock amount
+    # maybe change to use stock amount change instead of new amount?
+    pass
+
+async def confirm_order(order, inventory, new_stock_amount):
+    await create_combo(order, inventory)
+    calculate_tax(order)
+
+    # ask user to confirm order
+
+    update_stock(new_stock_amount)
+    
+    pass
 
 async def main():
     print("Welcome to the ProgrammingExpert Burger Bar!")
@@ -76,7 +146,9 @@ async def main():
 
     display_catalogue(inventory.catalogue)
 
-    order = await get_order(number_of_items)
+    order = get_order(number_of_items)
+    order, new_stock_amount = await check_stock(order, inventory)
+    await confirm_order(order, inventory, new_stock_amount)
 
 if __name__ == "__main__":
     asyncio.run(main())
