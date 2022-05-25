@@ -103,24 +103,80 @@ def get_order(number_of_items):
 
     return order
 
+
 async def create_combo(order, inventory):
     combo_burger = {}
     combo_side = {}
     combo_drink = {}
 
-    # convert order to list of inventory item
-    # see if burger, side, drink exists in list
-    # create combo price
-    # return rest of price
-    # return subtotal
-    
-    return 0
+    tasks = []
 
-def calculate_tax(order):
-    # get sub total 
-    # calculate tax
-    # return total
-    pass
+    for item, amount in order.items():
+        for _ in range(amount):
+            tasks.append(asyncio.create_task(inventory.get_item(item)))
+
+    items_list = await asyncio.gather(*tasks)
+
+    burgers = list(filter(lambda item: item["category"] == "Burgers", items_list))
+    sides = list(filter(lambda item: item["category"] == "Sides", items_list))
+    drinks = list(filter(lambda item: item["category"] == "Drinks", items_list))
+    
+    sub_total = 0
+
+    print()
+    print("Here is a summary of your order:")
+    print()
+
+    if len(items_list) >= 3:
+        while len(burgers) > 0 and len(sides) > 0 and len(drinks) > 0:
+            burgers.sort(key=lambda item: item["price"], reverse=True)
+            sides.sort(key=lambda item: item["price"], reverse=True)
+            drinks.sort(key=lambda item: item["price"], reverse=True)
+
+            combo_burger = burgers.pop(0)
+            combo_side = sides.pop(0)
+            combo_drink = drinks.pop(0)
+
+            combo_price = round((combo_burger["price"] + combo_side["price"] + combo_drink["price"]) * 0.85, 2)
+
+            print(f"${combo_price:.2f} Burger Combo")
+            print(f" {combo_burger['name']}")
+            print(f" {combo_side['size']} {combo_side['subcategory']}")
+            print(f" {combo_side['size']} {combo_drink['subcategory']}")
+
+            sub_total += combo_price
+    
+    while len(burgers) > 0:
+        burger = burgers.pop()
+
+        print(f"${burger['price']} {burger['name']}")
+        sub_total += burger["price"]
+
+    while len(sides) > 0:
+        side = sides.pop()
+
+        print(f"${side['price']} {combo_side['size']} {combo_side['subcategory']}")
+        sub_total += side["price"]
+
+    while len(drinks) > 0:
+        drink = drinks.pop()
+
+        print(f"${drink['price']} {combo_side['size']} {drink['subcategory']}")
+        sub_total += drink["price"]
+
+    print()
+
+    return sub_total
+
+def calculate_tax(subtotal):
+    tax = round(subtotal * 0.05, 2)
+    total = subtotal + tax
+
+    print(f"Subtotal: ${subtotal:.2f}")
+    print(f"Tax: ${tax:.2f}")
+    print(f"Total: ${total:.2f}")
+
+    return total
 
 def update_stock(new_stock_amount):
     # decrement stock until equal to stock amount
@@ -128,14 +184,15 @@ def update_stock(new_stock_amount):
     pass
 
 async def confirm_order(order, inventory, new_stock_amount):
-    await create_combo(order, inventory)
-    calculate_tax(order)
+    subtotal = await create_combo(order, inventory)
+    total = calculate_tax(subtotal)
 
-    # ask user to confirm order
+    confirm_purchase = input(f"Would you like to purchase this order for ${total:.2f} (yes/no)? ")
 
-    update_stock(new_stock_amount)
+    if (confirm_purchase == "yes"):
+        update_stock(new_stock_amount)
+        print("Thank you for your order!")
     
-    pass
 
 async def main():
     print("Welcome to the ProgrammingExpert Burger Bar!")
