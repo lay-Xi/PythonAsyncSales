@@ -65,10 +65,8 @@ async def check_stock(order, inventory):
             for _ in range(amount_left, 0):
                 print(f"Unfortunately item number {item} is out of stock and has been removed from your order. Sorry!")
                 order[item] -= 1
-            
-            stock_dict[item] = 0
         else:
-            stock_dict[item] = amount_left
+            stock_dict[item] = amount_ordered
 
     print()
 
@@ -102,7 +100,6 @@ def get_order(number_of_items):
     print("Placing order...")
 
     return order
-
 
 async def create_combo(order, inventory):
     combo_burger = {}
@@ -142,7 +139,7 @@ async def create_combo(order, inventory):
             print(f"${combo_price:.2f} Burger Combo")
             print(f" {combo_burger['name']}")
             print(f" {combo_side['size']} {combo_side['subcategory']}")
-            print(f" {combo_side['size']} {combo_drink['subcategory']}")
+            print(f" {combo_drink['size']} {combo_drink['subcategory']}")
 
             sub_total += combo_price
     
@@ -155,13 +152,13 @@ async def create_combo(order, inventory):
     while len(sides) > 0:
         side = sides.pop()
 
-        print(f"${side['price']} {combo_side['size']} {combo_side['subcategory']}")
+        print(f"${side['price']} {side['size']} {side['subcategory']}")
         sub_total += side["price"]
 
     while len(drinks) > 0:
         drink = drinks.pop()
 
-        print(f"${drink['price']} {combo_side['size']} {drink['subcategory']}")
+        print(f"${drink['price']} {drink['size']} {drink['subcategory']}")
         sub_total += drink["price"]
 
     print()
@@ -178,21 +175,27 @@ def calculate_tax(subtotal):
 
     return total
 
-def update_stock(new_stock_amount):
-    # decrement stock until equal to stock amount
-    # maybe change to use stock amount change instead of new amount?
-    pass
+async def update_stock(stock_change_amount, inventory):
+    tasks = []
+
+    for item, amount in stock_change_amount.items():
+        for _ in range(amount):
+            tasks.append(asyncio.create_task(inventory.decrement_stock(item)))
+
+    await asyncio.gather(*tasks)
 
 async def confirm_order(order, inventory, new_stock_amount):
-    subtotal = await create_combo(order, inventory)
-    total = calculate_tax(subtotal)
+    if len(order) > 0:
+        subtotal = await create_combo(order, inventory)
+        total = calculate_tax(subtotal)
 
-    confirm_purchase = input(f"Would you like to purchase this order for ${total:.2f} (yes/no)? ")
+        confirm_purchase = input(f"Would you like to purchase this order for ${total:.2f} (yes/no)? ")
 
-    if (confirm_purchase == "yes"):
-        update_stock(new_stock_amount)
-        print("Thank you for your order!")
-    
+        if (confirm_purchase == "yes"):
+            await update_stock(new_stock_amount, inventory)
+            print("Thank you for your order!")
+        else:
+            print("No problem, please come again!")
 
 async def main():
     print("Welcome to the ProgrammingExpert Burger Bar!")
@@ -203,9 +206,16 @@ async def main():
 
     display_catalogue(inventory.catalogue)
 
-    order = get_order(number_of_items)
-    order, new_stock_amount = await check_stock(order, inventory)
-    await confirm_order(order, inventory, new_stock_amount)
+    while True: 
+        order = get_order(number_of_items)
+        order, stock_change_amount = await check_stock(order, inventory)
+        await confirm_order(order, inventory, stock_change_amount)
+        order_again = input("Would you like to make another order (yes/no)? ")
+
+        if order_again == "no":
+            break
+    
+    print("Goodbye!")
 
 if __name__ == "__main__":
     asyncio.run(main())
